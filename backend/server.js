@@ -6,6 +6,8 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import userRoute from './routes/user.route.js'
 import {v2 as cloudinary} from 'cloudinary'
+import postRoute from './routes/post.route.js'
+import notificationRoute from './routes/notification.route.js'
 
 
 dotenv.config()
@@ -25,6 +27,8 @@ app.use(cookieParser())
 
 app.use('/api/auth', authRoute)
 app.use('/api/users', userRoute)
+app.use('/api/posts', postRoute);
+app.use('/api/notification', notificationRoute)
 app.listen(PORT,()=>{
     console.log('Listening at port 8008')
     mongoDbConnection()
