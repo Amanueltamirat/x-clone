@@ -15,15 +15,13 @@ export const signUp = async(req,res)=>{
     }
 
     if(existingUsername){
-       return res.status(404).json({error:"User Name already taken"})
+       return res.status(404).json({error:"User Name is already taken"})
     }
 
   const existingEmail = await User.findOne({email});
      if(existingEmail){
         return res.status(404).json({error:"Email already taken"})
-    } 
-console.log(username);
-
+    };
 const salt = await bcrypt.genSalt(10);
 const hashedPassword = await bcrypt.hash(password, salt);
 

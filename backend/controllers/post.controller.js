@@ -3,10 +3,46 @@ import User from "../models/user.model.js";
 import {v2 as cloudinary} from 'cloudinary'
 import Notification from '../models/notification.model.js'
 
+
+
+export const getFollowingPosts = async(req,res)=>{
+   
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+        if(!user){
+          return  res.status(404).json({error:"can't found user"})
+        }
+    
+        const following = user.following;
+    
+
+        const feedPosts = await Post.find({user:{$in: following}})
+        .sort({createdAt:-1})
+        .populate({
+            path:'user',
+            select:'-password'
+        })
+        .populate({
+            path:'comments.user',
+            select:'-password'
+        })
+        if(feedPosts.length ===0){
+            return res.status(201).json([])
+        };
+      
+        res.status(201).json(feedPosts)
+    } catch (error) {
+        console.log('error in get following posts',error.message);
+        res.status(500).json({error:'Internal server error'})
+    }
+}
+
+
 export const createPost = async(req,res)=>{
     try {
-        const {text} = req.body;
-        const {img} = req.body;
+        let {text} = req.body;
+        let {img} = req.body;
         const userId = req.user._id
         const user = await User.findById(userId);
         if(!user){
@@ -125,33 +161,7 @@ try {
     res.status(404).json({error:'Internal server error'})
 }
 }
-export const getFollowingPosts = async(req,res)=>{
-    try {
-        const userId = req.user._id;
-        const user = await User.findById(userId);
-        if(!user){
-            res.status(404).json({error:"user not found"})
-        }
-        const following = user.following;
-        console.log(following)
 
-        const feedPosts = await Post.find({user:{$in: following}})
-        .sort({createdAt:-1})
-        .populate({
-            path:'user',
-            select:'-password'
-        })
-        .populate({
-            path:'comments.user',
-            select:'-password'
-        })
-        console.log(feedPosts)
-        res.status(201).json(feedPosts)
-    } catch (error) {
-        console.log('error in get following posts',error.message);
-        res.status(500).json({error:'Internal server error'})
-    }
-}
 export const getUserPosts = async(req,res)=>{
    try {
      const {username} = req.params;

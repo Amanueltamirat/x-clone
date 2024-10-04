@@ -1,0 +1,6 @@
+"overrides": [
+    {
+      "rules": {
+        "react/prop-types": "off"
+      }
+    }]
