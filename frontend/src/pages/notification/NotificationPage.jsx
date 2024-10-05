@@ -5,32 +5,56 @@ import { IoSettingsOutline } from "react-icons/io5";
 import { FaUser } from "react-icons/fa";
 import { FaHeart } from "react-icons/fa6";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const NotificationPage = () => {
-	const isLoading = false;
-	const notifications = [
-		{
-			_id: "1",
-			from: {
-				_id: "1",
-				username: "johndoe",
-				profileImg: "/avatars/boy2.png",
-			},
-			type: "follow",
+	// const isLoading = false;
+
+const queryClient = useQueryClient()
+
+const {data:notifications, isLoading} = useQuery({
+	queryKey:['notifications'],
+	queryFn:async()=>{
+		try {
+			const res = await fetch('/api/notification');
+			const data = await res.json();
+			if(!res.ok){
+				throw new Error(data.error)
+			}
+			console.log(data)
+			return data
+		} catch (error) {
+			throw new Error(error.message)
+		}
+	}
+})
+
+
+const {mutate:deleteNotification,isPending} = useMutation({
+		mutationFn:async()=>{
+			try {
+				const res = await fetch('/api/notification',{
+					method:"DELETE"
+				})
+				const data = await res.json();
+
+				if(!res.ok){
+					throw new Error(data.error)
+				}
+				return data
+			} catch (error) {
+				throw new Error(error)
+			}
 		},
-		{
-			_id: "2",
-			from: {
-				_id: "2",
-				username: "janedoe",
-				profileImg: "/avatars/girl1.png",
-			},
-			type: "like",
-		},
-	];
+		onSuccess:()=>{
+			queryClient.invalidateQueries({queryKey:['notifications']})
+		}
+	})
+
+
 
 	const deleteNotifications = () => {
-		alert("All notifications deleted");
+		deleteNotification()
 	};
 
 	return (
@@ -40,8 +64,10 @@ const NotificationPage = () => {
 					<p className='font-bold'>Notifications</p>
 					<div className='dropdown '>
 						<div tabIndex={0} role='button' className='m-1'>
-							<IoSettingsOutline className='w-4' />
+							{deleteNotification.length  && <IoSettingsOutline className='w-4' />}
+							{isPending && <LoadingSpinner size="md"/>}
 						</div>
+
 						<ul
 							tabIndex={0}
 							className='dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52'

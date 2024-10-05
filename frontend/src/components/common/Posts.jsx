@@ -9,14 +9,15 @@ import PostSkeleton from "../skeletons/PostSkeleton";
 import Post from "./Post.jsx";
 import { useEffect } from "react";
 
-const Posts = ({feedType}) => {
+const Posts = ({feedType, username}) => {
 	const getPostEndPoint = ()=>{
 		switch (feedType) {
 			case 'foryou':
 				return '/api/posts/allposts'
 			case 'following':
 				return '/api/posts/following'
-		
+			case 'posts':
+				return `/api/posts/${username}`
 			default:
 				return '/api/posts/allposts';
 		}

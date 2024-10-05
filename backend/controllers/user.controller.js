@@ -119,7 +119,9 @@ export const updateUserProfile = async(req,res)=>{
             profileImg = res.secure_url;
         }
         if(coverImg){
-            await cloudinary.uploader.destroy(user.coverImg.split('/').pop().split('.')[0])
+            if (user.coverImg) {
+			await cloudinary.uploader.destroy(user.coverImg.split("/").pop().split(".")[0]);
+			}
               const res = await cloudinary.uploader.upload(coverImg);
               coverImg = res.secure_url;
         }
@@ -130,7 +132,6 @@ export const updateUserProfile = async(req,res)=>{
     user.link = link || user.link;
     user.profileImg = profileImg || user.profileImg;
     user.coverImg = coverImg || user.coverImg;
-
     user = await user.save();
     user.password = null;
     res.status(201).json(user)

@@ -6,7 +6,6 @@ export const getAllNotifications = async(req,res)=>{
         const userId = req.user._id;
         const notification  = await NotificationModel.find({to:userId}).populate({
             path:'from',
-            select:'username, profileImg'
         })
         await NotificationModel.updateMany({to:userId},{read:true});
         res.status(201).json(notification)

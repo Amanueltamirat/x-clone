@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMutation,  useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
-const EditProfileModal = () => {
+const EditProfileModal = ({authUser}) => {
 	const [formData, setFormData] = useState({
 		fullName: "",
 		username: "",
@@ -10,11 +11,50 @@ const EditProfileModal = () => {
 		newPassword: "",
 		currentPassword: "",
 	});
+const queryClient = useQueryClient()
+const {mutate:updateUser,isPending:updating} = useMutation({
+	mutationFn:async()=>{
+		try {
+			const res = await fetch(`/api/users/update`,{
+				method:"POST",
+				headers:{
+					'Content-Type':'application/json'
+				},
+				body:JSON.stringify(formData)
+			})
+			const data = await res.json();
+			if(!res.ok){
+				throw new Error(data.error);
+			}
+		
+			return data
+		} catch (error) {
+			throw new Error(error)
+		}
+	},
+	onSuccess:()=>{
+		Promise.all([
+			queryClient.invalidateQueries({queryKey:['authUser']}),
+			queryClient.invalidateQueries({queryKey:['userprofile']})
+		])
+	}
+})
+
 
 	const handleInputChange = (e) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
 	};
-
+	useEffect(()=>{
+		setFormData({
+		fullName: authUser.fullName,
+		username:authUser.username,
+		email: authUser.email,
+		bio: authUser.bio,
+		link: authUser.link,
+		newPassword: "",
+		currentPassword: "",
+		})
+	},[])
 	return (
 		<>
 			<button
@@ -30,7 +70,7 @@ const EditProfileModal = () => {
 						className='flex flex-col gap-4'
 						onSubmit={(e) => {
 							e.preventDefault();
-							alert("Profile updated successfully");
+							updateUser()
 						}}
 					>
 						<div className='flex flex-wrap gap-2'>
@@ -94,7 +134,7 @@ const EditProfileModal = () => {
 							name='link'
 							onChange={handleInputChange}
 						/>
-						<button className='btn btn-primary rounded-full btn-sm text-white'>Update</button>
+						<button className='btn btn-primary rounded-full btn-sm text-white'>{updating ? 'Updating...':'Update'}</button>
 					</form>
 				</div>
 				<form method='dialog' className='modal-backdrop'>

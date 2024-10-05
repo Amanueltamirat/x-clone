@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
 // import Posts from "../../components/common/Posts";
 // import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
@@ -11,13 +11,16 @@ import { FaArrowLeft } from "react-icons/fa6";
 import { IoCalendarOutline } from "react-icons/io5";
 import { FaLink } from "react-icons/fa";
 import { MdEdit } from "react-icons/md";
-import { POSTS } from "../../utils/db/dummy";
 import Posts from "../../components/common/Posts";
 import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
 import EditProfileModal from "./EditProfileModal";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMemberSinceDate } from "../../utils/db/data";
+import useFollow from "../../hooks/useFollow";
 
 const ProfilePage = () => {
+	const {username} = useParams()
+
 	const [coverImg, setCoverImg] = useState(null);
 	const [profileImg, setProfileImg] = useState(null);
 	const [feedType, setFeedType] = useState("posts");
@@ -25,21 +28,35 @@ const ProfilePage = () => {
 	const coverImgRef = useRef(null);
 	const profileImgRef = useRef(null);
 
-	const isLoading = false;
-	const isMyProfile = true;
 
-	// const user = {
-	// 	_id: "1",
-	// 	fullName: "John Doe",
-	// 	username: "johndoe",
-	// 	profileImg: "/avatars/boy2.png",
-	// 	coverImg: "/cover.png",
-	// 	bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-	// 	link: "https://youtube.com/@asaprogrammer_",
-	// 	following: ["1", "2", "3"],
-	// 	followers: ["1", "2", "3"],
-	// };
-	const {data} = useQuery({queryKey:['authUser']})
+const queryClient = useQueryClient()
+const {data:authUser} = useQuery({queryKey:['authUser']})
+
+const {followUnfolow,isPending} = useFollow()
+
+const {data, isLoading,refetch,isRefetching} = useQuery({
+	queryKey:['userprofile'],
+	queryFn:async()=>{
+		try {
+			const res = await fetch(`/api/users/profile/${username}`)
+			const data = await res.json();
+			if(!res.ok){
+				throw new Error(data.error);
+			}
+			console.log(data)
+		return data
+		} catch (error) {
+			throw new Error(error.message)
+		}
+	}
+})
+
+	const isMyProfile = authUser._id === data?._id;
+
+useEffect(()=>{
+	refetch()
+	queryClient.invalidateQueries({queryKey:['posts']})
+},[username,refetch,queryClient])
 
 	const handleImgChange = (e, state) => {
 		const file = e.target.files[0];
@@ -53,14 +70,44 @@ const ProfilePage = () => {
 		}
 	};
 
+const {mutateAsync:updateUser,isPending:updating} = useMutation({
+	mutationFn:async()=>{
+		try {
+			const res = await fetch(`/api/users/update`,{
+				method:"POST",
+				headers:{
+					'Content-Type':'application/json'
+				},
+				body:JSON.stringify({profileImg, coverImg})
+			})
+			const data = await res.json();
+			if(!res.ok){
+				throw new Error(data.error);
+			}
+		
+			return data
+		} catch (error) {
+			throw new Error(error)
+		}
+	},
+	onSuccess:()=>{
+		Promise.all([
+			queryClient.invalidateQueries({queryKey:['authUser']}),
+			queryClient.invalidateQueries({queryKey:['userprofile']})
+		])
+	}
+})
+
+const amIFollowing =authUser.following.includes(data?._id)
+
 	return (
 		<>
 			<div className='flex-[4_4_0]  border-r border-gray-700 min-h-screen '>
 				{/* HEADER */}
-				{isLoading && <ProfileHeaderSkeleton />}
-				{!isLoading && !data && <p className='text-center text-lg mt-4'>User not found</p>}
+				{isLoading || isRefetching && <ProfileHeaderSkeleton />}
+				{!isLoading && !isRefetching && !data && <p className='text-center text-lg mt-4'>User not found</p>}
 				<div className='flex flex-col'>
-					{!isLoading && data && (
+					{!isLoading && !isRefetching && data && (
 						<>
 							<div className='flex gap-10 px-4 py-2 items-center'>
 								<Link to='/'>
@@ -68,7 +115,7 @@ const ProfilePage = () => {
 								</Link>
 								<div className='flex flex-col'>
 									<p className='font-bold text-lg'>{data?.fullName}</p>
-									<span className='text-sm text-slate-500'>{POSTS?.length} posts</span>
+									<span className='text-sm text-slate-500'>{data?.length} posts</span>
 								</div>
 							</div>
 							{/* COVER IMG */}
@@ -117,21 +164,27 @@ const ProfilePage = () => {
 								</div>
 							</div>
 							<div className='flex justify-end px-4 mt-5'>
-								{isMyProfile && <EditProfileModal />}
+								{isMyProfile && <EditProfileModal authUser={authUser} />}
 								{!isMyProfile && (
 									<button
 										className='btn btn-outline rounded-full btn-sm'
-										onClick={() => alert("Followed successfully")}
+										onClick={()=>followUnfolow(data?._id)}
 									>
-										Follow
+										{isPending && "Loading..."}
+										{!isPending && amIFollowing && 'Unfollow'}
+										{!isPending && !amIFollowing && 'Follow'}
 									</button>
 								)}
 								{(coverImg || profileImg) && (
 									<button
 										className='btn btn-primary rounded-full btn-sm text-white px-4 ml-2'
-										onClick={() => alert("Profile updated successfully")}
+										onClick={async() =>{
+											await updateUser()
+											setCoverImg('');
+											setProfileImg('')
+											}}
 									>
-										Update
+										{updating ?'Updating...':'Update'}
 									</button>
 								)}
 							</div>
@@ -149,19 +202,19 @@ const ProfilePage = () => {
 											<>
 												<FaLink className='w-3 h-3 text-slate-500' />
 												<a
-													href='https://youtube.com/@asaprogrammer_'
+													href={`${data?.link}`}
 													target='_blank'
 													rel='noreferrer'
 													className='text-sm text-blue-500 hover:underline'
 												>
-													youtube.com/@asaprogrammer_
+													{data?.link}
 												</a>
 											</>
 										</div>
 									)}
 									<div className='flex gap-2 items-center'>
 										<IoCalendarOutline className='w-4 h-4 text-slate-500' />
-										<span className='text-sm text-slate-500'>Joined at {data?.createdAt}</span>
+										<span className='text-sm text-slate-500'>{formatMemberSinceDate(data?.createdAt)}</span>
 									</div>
 								</div>
 								<div className='flex gap-2'>
@@ -185,7 +238,7 @@ const ProfilePage = () => {
 										<div className='absolute bottom-0 w-10 h-1 rounded-full bg-primary' />
 									)}
 								</div>
-								<div
+								{/* <div
 									className='flex justify-center flex-1 p-3 text-slate-500 hover:bg-secondary transition duration-300 relative cursor-pointer'
 									onClick={() => setFeedType("likes")}
 								>
@@ -193,12 +246,12 @@ const ProfilePage = () => {
 									{feedType === "likes" && (
 										<div className='absolute bottom-0 w-10  h-1 rounded-full bg-primary' />
 									)}
-								</div>
+								</div> */}
 							</div>
 						</>
 					)}
 
-					<Posts />
+					<Posts feedType={feedType} username={username} />
 				</div>
 			</div>
 		</>
